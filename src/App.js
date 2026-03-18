@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+/* eslint-disable react-hooks/exhaustive-deps */
 
 const BACKEND = "https://momenta-backend.onrender.com";
 const today = () => new Date().toISOString().split("T")[0];
@@ -662,7 +663,6 @@ function HybridChat({ patient, patients, setPatients, onBack, lang }) {
   useEffect(()=>{
     addMsg({role:"assistant", content: t.chatGreeting(firstName)});
     showQuestion(0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
   function showQuestion(idx) {
