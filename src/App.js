@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
-const BACKEND = "http://localhost:5000";
+const BACKEND = "https://momenta-backend.onrender.com";
 const today = () => new Date().toISOString().split("T")[0];
 const COLORS = ["#5ee7df","#b490ca","#f7971e","#56ccf2","#f093fb","#4facfe","#43e97b"];
 const DEFAULT_RADIO_OPTIONS = ["Never","Rarely","Sometimes","Often","Always"];
@@ -447,81 +447,30 @@ function LangPicker({ lang, setLang }) {
   );
 }
 
-function makeHistory(questions, days=14) {
-  return Array.from({length:days},(_,i)=>{
-    const d=new Date(); d.setDate(d.getDate()-(days-i));
-    const entry={date:d.toLocaleDateString("en-US",{month:"short",day:"numeric"})};
-    questions.forEach(q=>{entry[q.id]=Math.floor(Math.random()*4)+1;});
-    return entry;
-  });
-}
-
-const INITIAL_PATIENTS = [
-  {
-    id:"P001", name:"Alex Chen", age:28, avatar:"AC", lastCheckin:"",
-    diagnoses:{
-      ADHD:{
-        questions:[
-          {id:"focus",      label:"How difficult was it to focus on tasks today?",    type:"slider"},
-          {id:"hyperactive",label:"Did you feel restless or hyperactive?",            type:"yesno"},
-          {id:"impulsivity",label:"How often did you act impulsively?",               type:"radio",radioOptions:["Never","Rarely","Sometimes","Often","Always"]},
-          {id:"focus_feel", label:"Tell me more about how your concentration felt today.", type:"freetext"}
-        ],
-        medications:["Ritalin 10mg"], history:[]
-      },
-      Depression:{
-        questions:[
-          {id:"mood",      label:"How would you rate your mood today?",               type:"slider"},
-          {id:"fatigue",   label:"Did you feel fatigued or low energy?",              type:"yesno"},
-          {id:"interest",  label:"How was your interest in things you usually enjoy?",type:"radio",radioOptions:["None at all","Very little","Some","Mostly normal","Fully normal"]},
-          {id:"mood_feel", label:"In your own words, how are you feeling emotionally today?", type:"freetext"}
-        ],
-        medications:["Sertraline 50mg"], history:[]
-      }
-    }
-  },
-  {
-    id:"P002", name:"Jordan Lee", age:34, avatar:"JL", lastCheckin:"",
-    diagnoses:{
-      OCD:{
-        questions:[
-          {id:"obsessions", label:"How much were intrusive thoughts bothering you?",  type:"slider"},
-          {id:"compulsions",label:"Did you perform any compulsive behaviours today?", type:"yesno"},
-          {id:"ocd_feel",   label:"Can you describe what today was like with your OCD thoughts?", type:"freetext"}
-        ],
-        medications:["Fluoxetine 20mg"], history:[]
-      },
-      Anxiety:{
-        questions:[
-          {id:"worry",   label:"How much did you worry today?",                       type:"slider"},
-          {id:"restless",label:"How restless or on-edge did you feel?",               type:"radio"},
-          {id:"panic",   label:"Did you have any panic attacks today?",               type:"yesno"},
-          {id:"anx_feel",label:"How would you describe your anxiety in your own words today?", type:"freetext"}
-        ],
-        medications:[], history:[]
-      }
-    }
-  }
-];
-
-const DOCTORS = [
-  {id:"D001", name:"Dr. Sarah Lim",  avatar:"SL", role:"doctor"},
-  {id:"D002", name:"Dr. James Wong", avatar:"JW", role:"doctor"}
-];
-
-INITIAL_PATIENTS.forEach(p => {
-  Object.keys(p.diagnoses).forEach(d => {
-    p.diagnoses[d].history = makeHistory(p.diagnoses[d].questions);
-  });
-});
-
 export default function App() {
-  const [patients, setPatients]        = useState(INITIAL_PATIENTS);
+  const [patients, setPatients]        = useState([]);
+  const [doctors, setDoctors]          = useState([]);
+  const [loading, setLoading]          = useState(true);
   const [user, setUser]                = useState(null);
   const [view, setView]                = useState("login");
   const [lang, setLang]                = useState("en");
   const [selectedPatient, setSelected] = useState(null);
   const [activeDisease, setActiveDx]   = useState(null);
+
+  // Fetch patients and doctors from backend on load
+  useEffect(() => {
+    Promise.all([
+      fetch(`${BACKEND}/patients`).then(r => r.json()),
+      fetch(`${BACKEND}/doctors`).then(r => r.json())
+    ]).then(([p, d]) => {
+      setPatients(p);
+      setDoctors(d);
+      setLoading(false);
+    }).catch(err => {
+      console.error("Failed to load data:", err);
+      setLoading(false);
+    });
+  }, []);
 
   const currentPatient = patients.find(p => p.id === user?.id);
   const logout = () => { setUser(null); setView("login"); setSelected(null); setActiveDx(null); };
@@ -530,10 +479,18 @@ export default function App() {
     if (selectedPatient?.id === id) setSelected(prev => updater(prev));
   };
 
+  if (loading) return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#f0ede8",flexDirection:"column",gap:16}}>
+      <div style={{width:48,height:48,borderRadius:14,background:"linear-gradient(135deg,#5ee7df,#b490ca)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>🧠</div>
+      <div style={{fontFamily:"'Fraunces',serif",fontSize:20,fontWeight:600}}>Momenta</div>
+      <div style={{display:"flex",gap:4}}>{[0,1,2].map(i=><span key={i} style={{width:8,height:8,borderRadius:"50%",background:"#b490ca",display:"inline-block",animation:`bounce 1s ${i*0.2}s infinite`}}/>)}</div>
+    </div>
+  );
+
   return (
     <>
       <G />
-      {view==="login" && <Login patients={patients} doctors={DOCTORS} lang={lang} setLang={setLang} onLogin={u=>{setUser(u);setView(u.role==="doctor"?"doctor":"patient");}}/>}
+      {view==="login" && <Login patients={patients} doctors={doctors} lang={lang} setLang={setLang} onLogin={u=>{setUser(u);setView(u.role==="doctor"?"doctor":"patient");}}/>}
       {view==="patient" && user && currentPatient && <PatientView patient={currentPatient} patients={patients} setPatients={setPatients} lang={lang} setLang={setLang} onLogout={logout}/>}
       {view==="doctor" && user && <DoctorView user={user} patients={patients} updatePatient={updatePatient} selected={selectedPatient} setSelected={setSelected} activeDisease={activeDisease} setActiveDisease={setActiveDx} onLogout={logout}/>}
     </>
@@ -745,13 +702,28 @@ function HybridChat({ patient, patients, setPatients, onBack, lang }) {
     showQuestion(stepIdx+1);
   }
 
-  function finishUp() {
+  async function finishUp() {
     const dateStr = new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"});
     const scoresByDisease = {};
     allQuestions.forEach(q=>{
       if (!scoresByDisease[q.disease]) scoresByDisease[q.disease]={};
       scoresByDisease[q.disease][q.id] = scoresRef.current[q.id]??3;
     });
+
+    // Save session to backend/database
+    try {
+      await fetch(`${BACKEND}/sessions`, {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          patient_id: patient.id,
+          date: dateStr,
+          scores_by_diagnosis: scoresByDisease
+        })
+      });
+    } catch(e) { console.error("Failed to save session:", e); }
+
+    // Update local state so UI reflects immediately
     setPatients(prev=>prev.map(p=>{
       if (p.id!==patient.id) return p;
       const newDx={...p.diagnoses};
