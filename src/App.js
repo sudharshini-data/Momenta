@@ -662,6 +662,7 @@ function HybridChat({ patient, patients, setPatients, onBack, lang }) {
   useEffect(()=>{
     addMsg({role:"assistant", content: t.chatGreeting(firstName)});
     showQuestion(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
   function showQuestion(idx) {
